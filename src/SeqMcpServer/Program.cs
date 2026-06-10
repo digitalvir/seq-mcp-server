@@ -115,6 +115,10 @@ if (envPath != null && File.Exists(envPath))
 // Create host builder for the MCP server
 var builder = Host.CreateApplicationBuilder(args);
 
+// Clear all default logging providers to prevent console output
+// MCP servers must not write to stdout/stderr as it interferes with JSON-RPC communication
+builder.Logging.ClearProviders();
+
 // Add filter for MCP-specific events as recommended by Microsoft
 builder.Logging.AddFilter("ModelContextProtocol", LogLevel.Information);
 
@@ -146,7 +150,6 @@ if (builder.Configuration.GetSection("Serilog").Exists())
             })
         .CreateLogger();
 
-    builder.Logging.ClearProviders();
     builder.Logging.AddSerilog();
 }
 

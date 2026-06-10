@@ -247,12 +247,12 @@ For detailed development setup, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 This is a pure MCP server implementation that:
 - Runs as a stdio-based service (no web server)
 - Communicates via JSON-RPC over standard input/output
-- Uses the normal .NET logging configuration unless Serilog is explicitly configured
-- Does not write diagnostic events to Seq unless a `Serilog` Seq sink is configured
+- Clears the default .NET logging providers at startup, so nothing is written to stdout/stderr (which would corrupt the JSON-RPC stream)
+- Stays silent unless a `Serilog` configuration section is supplied — no diagnostic events go anywhere until you wire up a sink
 
 ### Self-Logging
 
-The MCP server does not create a Seq logging sink automatically. `SEQ_SERVER_URL` and `SEQ_API_KEY` are used for querying Seq, not for ingesting the MCP server's own diagnostics.
+The MCP server does not create a Seq logging sink automatically. `SEQ_SERVER_URL` and `SEQ_API_KEY` are the **query** credentials — they are not used for ingesting the MCP server's own diagnostics. Ingesting to Seq requires a separate **ingest** API key, configured below.
 
 To send the MCP server's diagnostics to Seq, explicitly configure Serilog:
 
