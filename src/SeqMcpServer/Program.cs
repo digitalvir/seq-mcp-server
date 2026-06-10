@@ -1,8 +1,10 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SeqMcpServer.Services;
 using Serilog;
+using Serilog.Settings.Configuration;
 using System.Reflection;
 
 // Handle command-line arguments
@@ -113,10 +115,6 @@ if (envPath != null && File.Exists(envPath))
 // Create host builder for the MCP server
 var builder = Host.CreateApplicationBuilder(args);
 
-// Clear all default logging providers to prevent console output
-// MCP servers must not write to stdout/stderr as it interferes with JSON-RPC communication
-builder.Logging.ClearProviders();
-
 // Add filter for MCP-specific events as recommended by Microsoft
 builder.Logging.AddFilter("ModelContextProtocol", LogLevel.Information);
 
@@ -137,17 +135,21 @@ if (string.IsNullOrEmpty(seqApiKey))
     throw new InvalidOperationException("SEQ_API_KEY environment variable must be set");
 }
 
-// Configure Serilog with enhanced context for MCP operations
-Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Debug()
-    .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Information)
-    .MinimumLevel.Override("ModelContextProtocol", Serilog.Events.LogEventLevel.Debug)
-    .Enrich.FromLogContext()
-    .Enrich.WithProperty("Application", "SeqMcpServer")
-    .WriteTo.Seq(seqServerUrl, apiKey: seqApiKey)
-    .CreateLogger();
+if (builder.Configuration.GetSection("Serilog").Exists())
+{
+    Log.Logger = new LoggerConfiguration()
+        .ReadFrom.Configuration(
+            builder.Configuration,
+            new ConfigurationReaderOptions
+            {
+                SectionName = "Serilog"
+            })
+        .CreateLogger();
 
-builder.Logging.AddSerilog();
+    builder.Logging.ClearProviders();
+    builder.Logging.AddSerilog();
+}
+
 // Register services
 builder.Services.AddSingleton<ICredentialStore, EnvironmentCredentialStore>();
 builder.Services.AddSingleton<SeqConnectionFactory>();

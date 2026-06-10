@@ -247,12 +247,35 @@ For detailed development setup, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 This is a pure MCP server implementation that:
 - Runs as a stdio-based service (no web server)
 - Communicates via JSON-RPC over standard input/output
-- Does not log to console to avoid interfering with MCP communication
-- Optionally logs to Seq itself for debugging when configured
+- Uses the normal .NET logging configuration unless Serilog is explicitly configured
+- Does not write diagnostic events to Seq unless a `Serilog` Seq sink is configured
 
 ### Self-Logging
 
-The MCP server can log its own operations to Seq when a valid `SEQ_SERVER_URL` and `SEQ_API_KEY` are provided. This helps with debugging and monitoring the MCP server itself.
+The MCP server does not create a Seq logging sink automatically. `SEQ_SERVER_URL` and `SEQ_API_KEY` are used for querying Seq, not for ingesting the MCP server's own diagnostics.
+
+To send the MCP server's diagnostics to Seq, explicitly configure Serilog:
+
+```json
+{
+  "Serilog": {
+    "Using": [ "Serilog.Sinks.Seq" ],
+    "MinimumLevel": "Information",
+    "WriteTo": [
+      {
+        "Name": "Seq",
+        "Args": {
+          "serverUrl": "http://localhost:5341",
+          "apiKey": "your-ingest-api-key"
+        }
+      }
+    ],
+    "Properties": {
+      "Application": "SeqMcpServer"
+    }
+  }
+}
+```
 
 ## License
 
