@@ -75,9 +75,14 @@ The application runs as a Model Context Protocol (MCP) server using stdio transp
 ### Core Components
 
 **MCP Tools** (src/SeqMcpServer/Mcp/SeqTools.cs):
-- `SeqSearch`: Search Seq events with filters (count, filter, columns, render)
-- `SeqStream`: Stream live events from Seq (5-second timeout)
+- `SeqSearch`: Search Seq events with a filter, date range, signal and pagination; returns whole events
+- `SeqQuery`: Run a read-only Seq SQL query (counts, group by, time buckets, chosen columns); capped at 200 rows
+- `SeqWaitForEvents`: Capture live events for up to 5 seconds
 - `SignalList`: List available signals (read-only)
+- `SeqConvertFilter`: Convert a fuzzy filter to a strict filter expression
+
+Errors are thrown as `McpException`. The MCP SDK passes only that exception's message to the client;
+any other exception reaches the client as a generic "An error occurred invoking …".
 
 **Services**:
 - `EnvironmentCredentialStore` (src/SeqMcpServer/Services/EnvironmentCredentialStore.cs): Manages API keys from environment variables
@@ -88,7 +93,8 @@ The application runs as a Model Context Protocol (MCP) server using stdio transp
   - `SEQ_API_KEY`: Default API key
   - `SEQ_API_KEY_<WORKSPACE>`: Workspace-specific API keys (optional)
 - Seq server URL via `SEQ_SERVER_URL` environment variable or `appsettings.json`
-- Version constraints: Min 2024.1, Max 2025.1
+- Seq version range: `SeqVersion:Min`/`Max` in `appsettings.json` (2024.1 to 2025.2). Outside the range the server
+  only logs a warning at startup; nothing is blocked
 
 ### Testing Strategy
 - Unit tests for core services (e.g., EnvironmentCredentialStoreTests)

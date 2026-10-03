@@ -241,13 +241,14 @@ public abstract class McpToolsIntegrationTestsBase : IAsyncLifetime
         // Act - List available tools via MCP
         var tools = await McpClient.ListToolsAsync();
 
-        // Assert - Should have our four tools
+        // Assert - Should have our five tools
         Assert.NotNull(tools);
         Assert.Contains(tools, t => t.Name == "SeqSearch");
+        Assert.Contains(tools, t => t.Name == "SeqQuery");
         Assert.Contains(tools, t => t.Name == "SeqWaitForEvents");
         Assert.Contains(tools, t => t.Name == "SignalList");
         Assert.Contains(tools, t => t.Name == "SeqConvertFilter");
-        Assert.Equal(4, tools.Count);
+        Assert.Equal(5, tools.Count);
     }
 
     [Theory]
@@ -448,8 +449,7 @@ public abstract class McpToolsIntegrationTestsBase : IAsyncLifetime
         var errorJson = JsonSerializer.Serialize(result.Content.First());
         Assert.True(
             errorJson.Contains("Invalid filter expression") ||
-            errorJson.Contains("Syntax error") ||
-            errorJson.Contains("An error occurred"),
+            errorJson.Contains("Syntax error"),
             "Error message should indicate filter syntax problem");
     }
 

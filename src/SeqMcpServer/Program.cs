@@ -44,40 +44,10 @@ if (args.Length > 0)
     // This allows configuration arguments like --Seq:ServerUrl to work
 }
 
-// Load environment variables from .env file if it exists
-// Try multiple strategies to find the .env file
+// Load a development .env (written by scripts/setup-dev) from next to the build output only.
+// Never from the working directory: an MCP client starts this server in whatever project it has
+// open, and a .env there could point the server, and its API key, at another host.
 string? envPath = null;
-
-// Strategy 1: Check current directory
-if (File.Exists(".env"))
-{
-    envPath = Path.GetFullPath(".env");
-}
-// Strategy 2: Walk up from current directory to find .env
-else
-{
-    var currentDir = new DirectoryInfo(Directory.GetCurrentDirectory());
-    while (currentDir != null && envPath == null)
-    {
-        var possibleEnvPath = Path.Combine(currentDir.FullName, ".env");
-        if (File.Exists(possibleEnvPath))
-        {
-            envPath = possibleEnvPath;
-            break;
-        }
-        
-        // Stop if we find a .sln file (we've reached the solution root)
-        if (currentDir.GetFiles("*.sln").Length != 0)
-        {
-            break;
-        }
-        
-        currentDir = currentDir.Parent;
-    }
-}
-
-// Strategy 3: Check common locations relative to the executable
-if (envPath == null)
 {
     var baseDir = AppContext.BaseDirectory;
     var possiblePaths = new[]
@@ -107,7 +77,12 @@ if (envPath != null && File.Exists(envPath))
         if (!string.IsNullOrWhiteSpace(line) && !line.StartsWith('#') && line.Contains('='))
         {
             var parts = line.Split('=', 2);
-            Environment.SetEnvironmentVariable(parts[0].Trim(), parts[1].Trim());
+            var name = parts[0].Trim();
+            // Only fill gaps: a value set by the MCP client's configuration always wins.
+            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(name)))
+            {
+                Environment.SetEnvironmentVariable(name, parts[1].Trim());
+            }
         }
     }
 }

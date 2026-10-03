@@ -69,19 +69,20 @@ public class EnvironmentCredentialStoreTests
     }
     
     [Fact]
-    public void GetApiKey_FallsBackToDefaultForUnknownWorkspace()
+    public void GetApiKey_RejectsUnknownWorkspace()
     {
         // Arrange
         Environment.SetEnvironmentVariable("SEQ_API_KEY", "default-key");
-        
+
         try
         {
             // Act
             var store = new EnvironmentCredentialStore();
-            var key = store.GetApiKey("unknown-workspace");
-            
+            var ex = Assert.Throws<ModelContextProtocol.McpException>(() => store.GetApiKey("unknown-workspace"));
+
             // Assert
-            Assert.Equal("default-key", key);
+            Assert.Contains("SEQ_API_KEY_UNKNOWN-WORKSPACE", ex.Message);
+            Assert.DoesNotContain("default-key", ex.Message);
         }
         finally
         {

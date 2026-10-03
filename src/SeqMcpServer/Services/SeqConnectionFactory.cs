@@ -25,8 +25,7 @@ public sealed class SeqConnectionFactory
     public SeqConnection Create(string? workspace = null) 
     {
         var apiKey = _store.GetApiKey(workspace ?? "default");
-        _logger?.LogInformation("Creating Seq connection to {Url} with API key: {ApiKey}", 
-            _baseUrl, apiKey?[..Math.Min(5, apiKey?.Length ?? 0)] + "...");
+        _logger?.LogInformation("Creating Seq connection to {Url}", _baseUrl);
         return new SeqConnection(_baseUrl, apiKey);
     }
 }

@@ -78,29 +78,40 @@ dotnet publish -c Release -r win-x64 -p:PublishSingleFile=true
 
 The following tools are available through the MCP protocol:
 
-- **`SeqSearch`** - Search Seq events with filters, date ranges, signals, and pagination
+- **`SeqSearch`** - Fetch whole events (message, properties, full exception) with a filter, date range, signal and pagination
   - Parameters:
-    - `filter` (required): Seq filter expression (use empty string `""` for all events)
-    - `count`: Number of events to return (default: 100, max: 1000)
+    - `filter` (optional): Seq filter expression (default `""`, all events)
+    - `count`: Number of events to return (default: 10, max: 1000). Events are often several KB each
     - `signalId` (optional): Signal ID to filter events (use `SignalList` to find IDs)
-    - `fromDateUtc` (optional): Earliest date/time (ISO 8601, e.g., `"2024-01-01T00:00:00Z"`)
+    - `fromDateUtc` (optional): Earliest date/time (ISO 8601, e.g., `"2024-01-01T00:00:00Z"`; a value without an offset is read as UTC)
     - `toDateUtc` (optional): Latest date/time (ISO 8601, e.g., `"2024-01-31T23:59:59Z"`)
     - `afterId` (optional): Event ID to search after (exclusive) - use for pagination
-    - `timeoutSeconds` (optional): Timeout in seconds (1-300)
+    - `timeoutSeconds` (optional): Timeout in seconds (1-300, default 30)
     - `workspace` (optional): Specific workspace to query
-  - Returns: List of matching events (ordered least to most recent)
-  - **Note:** For date filtering, use `fromDateUtc`/`toDateUtc` parameters instead of `@Timestamp` in the filter expression for better performance
-  - **Pagination:** To fetch more than 1000 events, use `afterId` with the ID of the last event from the previous search
+  - Returns: List of matching events, newest first
+  - **Note:** For date filtering, use `fromDateUtc`/`toDateUtc` parameters instead of `@Timestamp` in the filter expression for better performance. There is no default range
+  - **Pagination:** To fetch more, pass `afterId` with the ID of the last (oldest) event from the previous page
   - Example filters:
     - `""` - all events
     - `"error"` - events containing "error"
     - `@Level = "Error"` - error level events
     - `Application = "MyApp"` - events from specific application
+    - `@Id = "event-…"` - one event, e.g. a sample id returned by `SeqQuery`
   - Example with date range:
     - `filter: "@Level = 'Error'", fromDateUtc: "2024-01-01T00:00:00Z", toDateUtc: "2024-01-31T23:59:59Z"`
   - Example with pagination:
     - First call: `filter: "", count: 1000` → returns events with IDs
     - Second call: `filter: "", count: 1000, afterId: "event-<last-id>"` → returns next batch
+
+- **`SeqQuery`** - Run a read-only Seq SQL query: counts, `group by`, time buckets, distinct counts, or chosen columns
+  - Parameters:
+    - `query` (required): Seq SQL, e.g. `select count(*) as n, first(@Id) as id from stream where @Level = 'Error' group by @EventType order by n desc limit 20`. Always include a `limit`: Seq limits result size
+    - `fromDateUtc` (optional): Range start (ISO 8601, UTC). Defaults to 24 hours before the range end; older events are excluded unless you set it. A range may span at most 31 days
+    - `toDateUtc` (optional): Range end (ISO 8601, UTC). Defaults to now
+    - `workspace` (optional): Specific workspace to query
+  - Returns: `columns` and `rows`; a query grouped by `time(…)` returns `slices` instead (one per bucket, each with its rows). At most 200 rows in total; `truncated: true` means the result was cut, so narrow the query
+  - With time grouping, `limit` counts rows across all slices: set it high enough, or later buckets are silently dropped
+  - `@Timestamp` comes back as .NET ticks; select `ToIsoString(@Timestamp)` for a readable time
 
 - **`SeqWaitForEvents`** - Wait for and capture live events from Seq (5-second timeout)
   - Parameters: 
@@ -202,7 +213,7 @@ If you are debugging compatibility issues:
 
 ### Workspace Support
 
-The MCP server supports workspace-specific API keys (future feature):
+Every tool takes an optional `workspace`, which selects an API key, not a server or an environment:
 
 ```bash
 export SEQ_API_KEY="default-key"
@@ -210,7 +221,9 @@ export SEQ_API_KEY_PRODUCTION="production-key"
 export SEQ_API_KEY_STAGING="staging-key"
 ```
 
-*Note: Workspace-specific keys are currently designed but not yet implemented in the MCP tools.*
+`workspace: "production"` uses `SEQ_API_KEY_PRODUCTION`. A workspace with no key configured is an error,
+not a silent fallback to the default key. To narrow results to an environment, filter on it instead
+(for example `Environment = 'PROD'`).
 
 ## Development
 
